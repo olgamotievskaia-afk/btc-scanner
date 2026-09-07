@@ -1,1 +1,17 @@
-{}
+{
+  "BTCUSDT": {
+    "pending": null,
+    "position": null,
+    "trend": -1
+  },
+  "ETHUSDT": {
+    "pending": null,
+    "position": null,
+    "trend": 1
+  },
+  "SOLUSDT": {
+    "pending": null,
+    "position": null,
+    "trend": 1
+  }
+}
