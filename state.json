@@ -7,12 +7,12 @@
   "ETHUSDT": {
     "pending": null,
     "position": null,
-    "trend": 1
+    "trend": -1
   },
   "SOLUSDT": {
     "pending": null,
     "position": null,
-    "trend": 1
+    "trend": -1
   },
   "HYPEUSDT": {
     "pending": null,
