@@ -38,6 +38,9 @@ DEPOSIT_USD = 10145.39       # !!! ПРАВЬ ВРУЧНУЮ при измене
                               # Для PU Prime это число НЕ годится — там другая система лотов,
                               # размер контракта не выяснен, готовый объём отсюда туда не переносить.
 MAX_LEVERAGE_CAP = 5.0       # лимит плеча Hash Hedge (сейчас у тебя стоит 5x)
+PU_PRIME_DEPOSIT_USD = 700.0  # !!! ПРАВЬ ВРУЧНУЮ — только СВОИ деньги, без бонусных $350
+                               # Подтверждено по факту сделки 09.09: 1.0 лот BTCUSD на PU Prime = 1 BTC
+                               # (тот же контракт, что и Hash Hedge) — формула объёма идентична.
 
 STATE_FILE = os.environ.get("STATE_FILE", "state.json")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -300,19 +303,25 @@ def send_telegram(text):
 
 def fmt_setup(symbol, side, entry, stop, target, rr):
     dirn = "LONG (покупка)" if side == "long" else "SHORT (продажа)"
-    risk_amt = DEPOSIT_USD * RISK_PER_TRADE
+    risk_amt_hh = DEPOSIT_USD * RISK_PER_TRADE
     stop_dist = abs(entry - stop)
-    volume_risk_based = risk_amt / stop_dist if stop_dist > 0 else 0
+    volume_risk_based = risk_amt_hh / stop_dist if stop_dist > 0 else 0
     volume_leverage_cap = (MAX_LEVERAGE_CAP * DEPOSIT_USD) / entry
-    volume_btc = min(volume_risk_based, volume_leverage_cap)
-    capped_note = " (сработал потолок по плечу 5x — реальный риск ниже 1%)" if volume_leverage_cap < volume_risk_based else ""
+    volume_hh = min(volume_risk_based, volume_leverage_cap)
+    capped_note = " (потолок по плечу 5x — риск ниже 1%)" if volume_leverage_cap < volume_risk_based else ""
+
+    risk_amt_pu = PU_PRIME_DEPOSIT_USD * RISK_PER_TRADE
+    lot_pu = risk_amt_pu / stop_dist if stop_dist > 0 else 0
+
     return (f"<b>{symbol}: {dirn}</b>\n"
             f"Вход (лимит, ретест IFVG): {entry:.6g}\n"
             f"Стоп: {stop:.6g}\n"
             f"Тейк: {target:.6g}\n"
             f"Плановый RR: {rr:.2f}\n"
-            f"Готовый объём (Hash Hedge, депозит ${DEPOSIT_USD:,.0f}): <b>{volume_btc:.4f} BTC</b>{capped_note}\n"
-            f"Для PU Prime это число НЕ подходит — там другая система лотов.")
+            f"Hash Hedge (депозит ${DEPOSIT_USD:,.0f}): <b>{volume_hh:.4f} BTC</b>{capped_note}\n"
+            f"PU Prime (свои ${PU_PRIME_DEPOSIT_USD:,.0f}, без бонуса): <b>{lot_pu:.2f} лот</b> "
+            f"(1 лот = 1 BTC)\n"
+            f"Проверь лимит плеча/маржи на каждой площадке перед вводом.")
 
 
 # ---------------- main ----------------
@@ -342,13 +351,21 @@ def main():
         last_alerted = prev.get("last_alerted_setup_time")
 
         # шлём алерт на КАЖДЫЙ новый сетап, появившийся с прошлого прогона —
-        # даже если он успел исполниться/закрыться в том же прогоне (быстрый рынок)
-        fresh = [s for s in new_setups if last_alerted is None or s["setup_time"] > last_alerted]
-        for s in fresh:
-            send_telegram(fmt_setup(symbol, s["side"], s["limit_price"], s["stop"], s["target"], s["planned_rr"]))
-            new_setups_this_run.append(symbol)
-        if fresh:
-            last_alerted = fresh[-1]["setup_time"]
+        # даже если он успел исполниться/закрыться в том же прогоне (быстрый рынок).
+        # ВАЖНО: если last_alerted ещё не было (первый запуск / после сброса state.json) —
+        # не шлём алерты по всей 200-дневной истории разом, а просто запоминаем последний
+        # известный сетап как точку отсчёта ("бутстрап" без спама).
+        if last_alerted is None:
+            fresh = []
+            if new_setups:
+                last_alerted = new_setups[-1]["setup_time"]
+        else:
+            fresh = [s for s in new_setups if s["setup_time"] > last_alerted]
+            for s in fresh:
+                send_telegram(fmt_setup(symbol, s["side"], s["limit_price"], s["stop"], s["target"], s["planned_rr"]))
+                new_setups_this_run.append(symbol)
+            if fresh:
+                last_alerted = fresh[-1]["setup_time"]
 
         if had_pending and pending is None and position is None and not prev.get("position"):
             send_telegram(f"{symbol}: сетап отменён (не заполнился либо стоп раньше входа).")
