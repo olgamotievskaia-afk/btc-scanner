@@ -32,7 +32,12 @@ IFVG_SEARCH_BARS = 20
 ENTRY_FILL_BARS = 20
 STOP_CLOSE_RATIO = 2.0
 MIN_RR = 1.0                 # проверено на всех 11 активах: PF 2.0-3.7
-RISK_PER_TRADE = 0.01        # только для справки в алерте
+RISK_PER_TRADE = 0.01        # 1% депозита — используется и для расчёта готового объёма в алерте
+DEPOSIT_USD = 10145.39       # !!! ПРАВЬ ВРУЧНУЮ при изменении баланса Hash Hedge — код не видит счёт сам
+                              # Актуален только для Hash Hedge (объём в BTC напрямую).
+                              # Для PU Prime это число НЕ годится — там другая система лотов,
+                              # размер контракта не выяснен, готовый объём отсюда туда не переносить.
+MAX_LEVERAGE_CAP = 5.0       # лимит плеча Hash Hedge (сейчас у тебя стоит 5x)
 
 STATE_FILE = os.environ.get("STATE_FILE", "state.json")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -165,6 +170,7 @@ def scan(df):
     swing_highs, swing_lows = [], []
     pending = None
     position = None
+    new_setups = []  # полная история всех сетапов, появившихся за этот прогон
 
     i = 0
     while i < n:
@@ -239,6 +245,7 @@ def scan(df):
                                                                    "stop": stop_px, "target": target_px,
                                                                    "expire_idx": b + ENTRY_FILL_BARS,
                                                                    "setup_time": str(times[b]), "planned_rr": rr}
+                                                        new_setups.append(dict(pending))
                                                 break
                                     break
             elif cur_trend == -1:
@@ -272,11 +279,12 @@ def scan(df):
                                                                    "stop": stop_px, "target": target_px,
                                                                    "expire_idx": b + ENTRY_FILL_BARS,
                                                                    "setup_time": str(times[b]), "planned_rr": rr}
+                                                        new_setups.append(dict(pending))
                                                 break
                                     break
         i += 1
 
-    return position, pending, int(trend[-1])
+    return position, pending, int(trend[-1]), new_setups
 
 
 # ---------------- Telegram ----------------
@@ -292,12 +300,19 @@ def send_telegram(text):
 
 def fmt_setup(symbol, side, entry, stop, target, rr):
     dirn = "LONG (покупка)" if side == "long" else "SHORT (продажа)"
+    risk_amt = DEPOSIT_USD * RISK_PER_TRADE
+    stop_dist = abs(entry - stop)
+    volume_risk_based = risk_amt / stop_dist if stop_dist > 0 else 0
+    volume_leverage_cap = (MAX_LEVERAGE_CAP * DEPOSIT_USD) / entry
+    volume_btc = min(volume_risk_based, volume_leverage_cap)
+    capped_note = " (сработал потолок по плечу 5x — реальный риск ниже 1%)" if volume_leverage_cap < volume_risk_based else ""
     return (f"<b>{symbol}: {dirn}</b>\n"
             f"Вход (лимит, ретест IFVG): {entry:.6g}\n"
             f"Стоп: {stop:.6g}\n"
             f"Тейк: {target:.6g}\n"
             f"Плановый RR: {rr:.2f}\n"
-            f"Риск 1% депозита -> объём = (0.01 * депозит) / {abs(entry-stop):.6g}")
+            f"Готовый объём (Hash Hedge, депозит ${DEPOSIT_USD:,.0f}): <b>{volume_btc:.4f} BTC</b>{capped_note}\n"
+            f"Для PU Prime это число НЕ подходит — там другая система лотов.")
 
 
 # ---------------- main ----------------
@@ -312,36 +327,35 @@ def main():
     new_setups_this_run = []
 
     for symbol in SYMBOLS:
-        prev = all_prev.get(symbol, {"pending": None, "position": None})
+        prev = all_prev.get(symbol, {"pending": None, "position": None, "last_alerted_setup_time": None})
         try:
             df = fetch_klines(symbol, INTERVAL, HISTORY_DAYS)
             df4h_trend = build_4h_trend(df)
             merged = attach_trend_to_15m(df, df4h_trend)
-            position, pending, trend = scan(merged)
+            position, pending, trend, new_setups = scan(merged)
         except Exception as e:
             print(f"[ERROR] {symbol}: {e}")
             all_new_state[symbol] = prev  # оставляем прошлое состояние, не теряем его
             continue
 
         had_pending = prev.get("pending") is not None
-        had_position = prev.get("position") is not None
+        last_alerted = prev.get("last_alerted_setup_time")
 
-        if pending is not None and not had_pending and position is None:
-            send_telegram(fmt_setup(symbol, pending["side"], pending["limit_price"],
-                                     pending["stop"], pending["target"], pending["planned_rr"]))
+        # шлём алерт на КАЖДЫЙ новый сетап, появившийся с прошлого прогона —
+        # даже если он успел исполниться/закрыться в том же прогоне (быстрый рынок)
+        fresh = [s for s in new_setups if last_alerted is None or s["setup_time"] > last_alerted]
+        for s in fresh:
+            send_telegram(fmt_setup(symbol, s["side"], s["limit_price"], s["stop"], s["target"], s["planned_rr"]))
             new_setups_this_run.append(symbol)
-        if position is not None and not had_position:
-            side_txt = "LONG" if position["side"] == "long" else "SHORT"
-            send_telegram(f"<b>{symbol}: вход исполнен {side_txt}</b>\n"
-                           f"Цена входа: {position['entry']:.6g}\nСтоп: {position['stop']:.6g}\n"
-                           f"Тейк: {position['target']:.6g}")
-        if had_position and position is None and pending is None:
-            send_telegram(f"<b>{symbol}: позиция закрыта</b> (стоп либо тейк — сверься с графиком).")
+        if fresh:
+            last_alerted = fresh[-1]["setup_time"]
+
         if had_pending and pending is None and position is None and not prev.get("position"):
             send_telegram(f"{symbol}: сетап отменён (не заполнился либо стоп раньше входа).")
 
-        all_new_state[symbol] = {"pending": pending, "position": position, "trend": trend}
-        print(f"{symbol}: trend={trend} pending={bool(pending)} position={bool(position)}")
+        all_new_state[symbol] = {"pending": pending, "position": position, "trend": trend,
+                                  "last_alerted_setup_time": last_alerted}
+        print(f"{symbol}: trend={trend} pending={bool(pending)} position={bool(position)} new_alerts={len(fresh)}")
 
     # предупреждение о кластерном риске, если сигналы пришли сразу по нескольким активам
     if len(new_setups_this_run) >= 2:
