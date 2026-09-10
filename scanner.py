@@ -303,6 +303,7 @@ def send_telegram(text):
 
 def fmt_setup(symbol, side, entry, stop, target, rr):
     dirn = "LONG (покупка)" if side == "long" else "SHORT (продажа)"
+    coin = symbol.replace("USDT", "")  # BTCUSDT -> BTC, ETHUSDT -> ETH, и т.д.
     risk_amt_hh = DEPOSIT_USD * RISK_PER_TRADE
     stop_dist = abs(entry - stop)
     volume_risk_based = risk_amt_hh / stop_dist if stop_dist > 0 else 0
@@ -312,15 +313,16 @@ def fmt_setup(symbol, side, entry, stop, target, rr):
 
     risk_amt_pu = PU_PRIME_DEPOSIT_USD * RISK_PER_TRADE
     lot_pu = risk_amt_pu / stop_dist if stop_dist > 0 else 0
+    pu_note = "" if coin == "BTC" else " (⚠️ контракт 1 лот=1 монета подтверждён только для BTC — сверь спецификацию для этой пары перед вводом на реальные деньги)"
 
     return (f"<b>{symbol}: {dirn}</b>\n"
             f"Вход (лимит, ретест IFVG): {entry:.6g}\n"
             f"Стоп: {stop:.6g}\n"
             f"Тейк: {target:.6g}\n"
             f"Плановый RR: {rr:.2f}\n"
-            f"Hash Hedge (депозит ${DEPOSIT_USD:,.0f}): <b>{volume_hh:.4f} BTC</b>{capped_note}\n"
+            f"Hash Hedge (депозит ${DEPOSIT_USD:,.0f}): <b>{volume_hh:.4f} {coin}</b>{capped_note}\n"
             f"PU Prime (свои ${PU_PRIME_DEPOSIT_USD:,.0f}, без бонуса): <b>{lot_pu:.2f} лот</b> "
-            f"(1 лот = 1 BTC)\n"
+            f"(1 лот = 1 {coin}){pu_note}\n"
             f"Проверь лимит плеча/маржи на каждой площадке перед вводом.")
 
 
