@@ -2,7 +2,7 @@
   "BTCUSDT": {
     "pending": null,
     "position": null,
-    "trend": 1,
+    "trend": -1,
     "last_alerted_setup_time": "2026-09-10T01:15:00.000"
   },
   "ETHUSDT": {
