@@ -2,25 +2,25 @@
   "BTCUSDT": {
     "pending": null,
     "position": null,
-    "trend": -1,
-    "last_alerted_setup_time": "2026-09-10T01:15:00.000"
+    "trend": 1,
+    "last_alerted_setup_time": "2026-09-11T12:30:00.000"
   },
   "ETHUSDT": {
     "pending": null,
     "position": null,
     "trend": 1,
-    "last_alerted_setup_time": "2026-09-08T09:30:00.000"
+    "last_alerted_setup_time": "2026-09-12T06:30:00.000"
   },
   "SOLUSDT": {
     "pending": null,
     "position": null,
     "trend": 1,
-    "last_alerted_setup_time": "2026-09-09T05:30:00.000"
+    "last_alerted_setup_time": "2026-09-11T21:45:00.000"
   },
   "HYPEUSDT": {
     "pending": null,
     "position": null,
     "trend": -1,
-    "last_alerted_setup_time": "2026-09-10T00:30:00.000"
+    "last_alerted_setup_time": "2026-09-12T18:00:00.000"
   }
 }
