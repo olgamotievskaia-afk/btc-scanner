@@ -3,7 +3,7 @@
     "pending": null,
     "position": null,
     "trend": -1,
-    "last_alerted_setup_time": "2026-09-15T13:30:00.000"
+    "last_alerted_setup_time": "2026-09-16T13:00:00.000"
   },
   "ETHUSDT": {
     "pending": null,
@@ -15,7 +15,7 @@
     "pending": null,
     "position": null,
     "trend": 1,
-    "last_alerted_setup_time": "2026-09-16T11:15:00.000"
+    "last_alerted_setup_time": "2026-09-16T18:00:00.000"
   },
   "HYPEUSDT": {
     "pending": null,
