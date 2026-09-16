@@ -12,10 +12,18 @@
     "last_alerted_setup_time": "2026-09-16T08:45:00.000"
   },
   "SOLUSDT": {
-    "pending": null,
+    "pending": {
+      "side": "long",
+      "limit_price": 97.0,
+      "stop": 96.94296,
+      "target": 97.4,
+      "expire_idx": 19218,
+      "setup_time": "2026-09-16T11:15:00.000",
+      "planned_rr": 7.012622720897636
+    },
     "position": null,
     "trend": 1,
-    "last_alerted_setup_time": "2026-09-15T12:00:00.000"
+    "last_alerted_setup_time": "2026-09-16T11:15:00.000"
   },
   "HYPEUSDT": {
     "pending": null,
