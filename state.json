@@ -15,12 +15,12 @@
     "pending": null,
     "position": null,
     "trend": 1,
-    "last_alerted_setup_time": "2026-09-21T07:45:00.000"
+    "last_alerted_setup_time": "2026-09-21T19:30:00.000"
   },
   "HYPEUSDT": {
     "pending": null,
     "position": null,
-    "trend": -1,
+    "trend": 1,
     "last_alerted_setup_time": "2026-09-21T01:15:00.000"
   }
 }
