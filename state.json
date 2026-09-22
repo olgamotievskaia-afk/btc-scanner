@@ -1,9 +1,15 @@
 {
   "BTCUSDT": {
     "pending": null,
-    "position": null,
+    "position": {
+      "side": "long",
+      "entry": 86012.0,
+      "entry_time": "2026-09-22T13:45:00.000",
+      "stop": 85852.94112,
+      "target": 86377.77
+    },
     "trend": 1,
-    "last_alerted_setup_time": "2026-09-22T08:00:00.000"
+    "last_alerted_setup_time": "2026-09-22T13:45:00.000"
   },
   "ETHUSDT": {
     "pending": null,
