@@ -7,9 +7,15 @@
   },
   "ETHUSDT": {
     "pending": null,
-    "position": null,
+    "position": {
+      "side": "short",
+      "entry": 2686.94,
+      "entry_time": "2026-09-24T07:45:00.000",
+      "stop": 2701.30861,
+      "target": 2669.62
+    },
     "trend": -1,
-    "last_alerted_setup_time": "2026-09-23T19:45:00.000"
+    "last_alerted_setup_time": "2026-09-24T08:15:00.000"
   },
   "SOLUSDT": {
     "pending": null,
