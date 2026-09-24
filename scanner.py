@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 
 # ---------------- Параметры стратегии (проверено бэктестом на каждом активе) ----------------
-SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "HYPEUSDT"]
+SYMBOLS = ["BTCUSDT"]
 INTERVAL = "15m"
 HISTORY_DAYS = 200
 SWING_K = 2
