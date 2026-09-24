@@ -287,6 +287,15 @@ def scan(df):
                                     break
         i += 1
 
+    seen = set()
+    deduped = []
+    for s in new_setups:
+        key = (s["side"], s["setup_time"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(s)
+    new_setups = deduped
+
     return position, pending, int(trend[-1]), new_setups
 
 
