@@ -39,6 +39,9 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 BINANCE_HOSTS = ["https://fapi.binance.com", "https://data-api.binance.vision"]
 
+LOCAL_UTC_OFFSET_H = 5                      # время в алертах: Екатеринбург (UTC+5)
+ENTRY_WINDOW_MIN = ENTRY_FILL_BARS * 15     # сколько минут лимитка актуальна после сетапа
+
 
 # ---------------- Загрузка данных ----------------
 def fetch_klines(symbol, interval, days):
@@ -290,6 +293,27 @@ def scan(df):
     return position, pending, int(trend[-1]), new_setups
 
 
+# ---------------- Актуален ли сетап прямо сейчас ----------------
+def is_actionable(df, s):
+    """Сетап актуален, если после его формирования цена ещё не дошла до лимитки и до тейка,
+    и окно ENTRY_FILL_BARS не истекло. Смотрим только свечи ПОСЛЕ свечи сетапа."""
+    ts = pd.Timestamp(s["setup_time"])
+    if ts.tzinfo is None:
+        ts = ts.tz_localize("UTC")
+    idx = df.index[df["datetime"] == ts]
+    if len(idx) == 0:
+        return False
+    b = idx[0]
+    if len(df) - 1 > b + ENTRY_FILL_BARS:
+        return False
+    after = df.iloc[b + 1:]
+    if len(after) == 0:
+        return True
+    if s["side"] == "long":
+        return not ((after["low"] <= s["limit_price"]).any() or (after["high"] >= s["target"]).any())
+    return not ((after["high"] >= s["limit_price"]).any() or (after["low"] <= s["target"]).any())
+
+
 # ---------------- Telegram ----------------
 def send_telegram(text):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
@@ -308,7 +332,7 @@ ACCOUNTS = [
 ]
 
 
-def fmt_setup(symbol, side, entry, stop, target, rr):
+def fmt_setup(symbol, side, entry, stop, target, rr, setup_time=None):
     dirn = "LONG (покупка)" if side == "long" else "SHORT (продажа)"
     coin = symbol.replace("USDT", "")
     stop_dist = abs(entry - stop)
@@ -317,8 +341,17 @@ def fmt_setup(symbol, side, entry, stop, target, rr):
              f"Вход (лимит, ретест IFVG): {entry:.6g}",
              f"Стоп: {stop:.6g}",
              f"Тейк: {target:.6g}",
-             f"Плановый RR: {rr:.2f}",
-             ""]
+             f"Плановый RR: {rr:.2f}"]
+
+    if setup_time is not None:
+        ts = pd.Timestamp(setup_time)
+        if ts.tzinfo is None:
+            ts = ts.tz_localize("UTC")
+        shift = pd.Timedelta(hours=LOCAL_UTC_OFFSET_H)
+        known = (ts + pd.Timedelta(minutes=15) + shift).strftime("%H:%M")
+        until = (ts + pd.Timedelta(minutes=ENTRY_WINDOW_MIN) + shift).strftime("%H:%M")
+        lines.append(f"Сетап сформирован в {known} (Екб). Лимитка актуальна до ~{until}, после этого ордер не ставь.")
+    lines.append("")
 
     for acc in ACCOUNTS:
         risk_amt = acc["balance"] * acc["risk"]
@@ -368,8 +401,7 @@ def main():
         had_pending = prev.get("pending") is not None
         last_alerted = prev.get("last_alerted_setup_time")
 
-        # шлём алерт на КАЖДЫЙ новый сетап, появившийся с прошлого прогона —
-        # даже если он успел исполниться/закрыться в том же прогоне (быстрый рынок).
+        # шлём алерт на каждый новый сетап, появившийся с прошлого прогона.
         # ВАЖНО: если last_alerted ещё не было (первый запуск / после сброса state.json) —
         # не шлём алерты по всей 200-дневной истории разом, а просто запоминаем последний
         # известный сетап как точку отсчёта ("бутстрап" без спама).
@@ -380,13 +412,19 @@ def main():
         else:
             fresh = [s for s in new_setups if s["setup_time"] > last_alerted]
             for s in fresh:
-                send_telegram(fmt_setup(symbol, s["side"], s["limit_price"], s["stop"], s["target"], s["planned_rr"]))
+                # шлём алерт только по сетапу, который актуален СЕЙЧАС (лимитка ещё не исполнилась,
+                # не истекла и стоп не пробит). Устаревшие сетапы молча пропускаем.
+                if not is_actionable(merged, s):
+                    print(f"{symbol}: пропущен устаревший сетап {s['setup_time']}")
+                    continue
+                send_telegram(fmt_setup(symbol, s["side"], s["limit_price"], s["stop"], s["target"],
+                                        s["planned_rr"], s["setup_time"]))
                 new_setups_this_run.append(symbol)
             if fresh:
                 last_alerted = fresh[-1]["setup_time"]
 
         if had_pending and pending is None and position is None and not prev.get("position"):
-            send_telegram(f"{symbol}: сетап отменён (не заполнился либо стоп раньше входа).")
+            send_telegram(f"{symbol}: предыдущий сетап больше не актуален. Если лимитка ещё висит и не исполнилась, сними её.")
 
         all_new_state[symbol] = {"pending": pending, "position": position, "trend": trend,
                                   "last_alerted_setup_time": last_alerted}
