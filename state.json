@@ -1,8 +1,14 @@
 {
   "BTCUSDT": {
     "pending": null,
-    "position": null,
+    "position": {
+      "side": "long",
+      "entry": 75927.99,
+      "entry_time": "2026-11-05T23:30:00.000000",
+      "stop": 75772.44171,
+      "target": 76087.85
+    },
     "trend": 1,
-    "last_alerted_setup_time": "2026-11-04T20:15:00.000000"
+    "last_alerted_setup_time": "2026-11-05T23:30:00.000000"
   }
 }
