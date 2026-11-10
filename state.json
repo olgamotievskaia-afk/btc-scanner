@@ -1,8 +1,16 @@
 {
   "BTCUSDT": {
-    "pending": null,
+    "pending": {
+      "side": "short",
+      "limit_price": 74393.12,
+      "stop": 74471.73733999999,
+      "target": 74058.45,
+      "expire_idx": 19204,
+      "setup_time": "2026-11-10T15:15:00.000000",
+      "planned_rr": 4.256948912288444
+    },
     "position": null,
     "trend": -1,
-    "last_alerted_setup_time": "2026-11-05T23:30:00.000000"
+    "last_alerted_setup_time": "2026-11-10T15:15:00.000000"
   }
 }
